@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Deepracer Analytics</title>
+    <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/@tailwindcss/typography@0.2.x/dist/typography.min.css">
+    <link href="index.css" rel="stylesheet" type="text/css" />
+    <script src="https://d3js.org/d3.v5.min.js">
+    </script>
+</head>
+
+<body>
+    <h1 style="font-size:3em">Deepracer Analytics</h1>
+    <div class="w-full md:w-1/3 px-3 mb-6 md:mb-0">
+        <label class="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" for="track">
+            Selected Track
+        </label>
+        <div class="relative">
+            <select
+                class="block appearance-none w-full bg-gray-200 border border-gray-200 text-gray-700 py-3 px-4 pr-8 rounded leading-tight focus:outline-none focus:bg-white focus:border-gray-500"
+                id="track" onchange="trackSwitched()">
+                <option value="AWS_track.json">AWS_track</option>
+                <option value="AmericasGeneratedInclStart.json">AmericasGeneratedInclStart</option>
+                <option value="Bowtie_track.json">Bowtie_track</option>
+                <option value="Canada_Eval.json">Canada_Eval</option>
+                <option value="Canada_Training.json">Canada_Training</option>
+                <option value="China_eval_track.json">China_eval_track</option>
+                <option value="China_track.json">China_track</option>
+                <option value="FS_June2020.json">FS_June2020</option>
+                <option value="H_track.json">H_track</option>
+                <option value="July_2020.json">July_2020</option>
+                <option value="LGSWide.json">LGSWide</option>
+                <option value="London_Loop_Train.json">London_Loop_Train</option>
+                <option value="Mexico_track.json">Mexico_track</option>
+                <option value="Mexico_track_eval.json">Mexico_track_eval</option>
+                <option value="New_York_Eval_Track.json">New_York_Eval_Track</option>
+                <option value="New_York_Track.json">New_York_Track</option>
+                <option value="Oval_track.json">Oval_track</option>
+                <option value="Spain_track.json">Spain_track</option>
+                <option value="Straight_track.json">Straight_track</option>
+                <option value="Tokyo_Training_track.json">Tokyo_Training_track</option>
+                <option value="Vegas_track.json">Vegas_track</option>
+                <option value="Virtual_May19_Train_track.json">Virtual_May19_Train_track</option>
+                <option value="reInvent2019_track.json">reInvent2019_track</option>
+                <option value="reInvent2019_wide.json">reInvent2019_wide</option>
+                <option value="reInvent2019_wide_mirrored.json">reInvent2019_wide_mirrored</option>
+                <option value="reinvent_base.json">reinvent_base</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+            </div>
+        </div>
+    </div>
+    <div class="w-full md:w-1/3 px-3 mb-6 md:mb-0">
+        <label class="md:w-2/3 block text-gray-500 font-bold">
+            <input class="mr-2 leading-tight" type="checkbox" id="show-track-classification" onchange="trackSwitched()">
+            <span class="text-sm">
+                Show track classification
+            </span>
+        </label>
+    </div>
+    <div id="track-area"></div>
+    <script src="index.js"></script>
+</body>
+
+</html>

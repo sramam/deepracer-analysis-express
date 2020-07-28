@@ -1,12 +1,43 @@
 
 function trackSwitched() {
-    const trackSelector = document.getElementById('track');
+    window.params = null;
+    window.logs = null;
+    return redrawTrack(window);
+}
+
+async function processEvaluationLog(content) {
+    content = content || document.getElementById("eval-log").value;
+    const { params, logs } = content
+        ? await parseLogs(content.split("\n"))
+        : { params: null, logs: [] };
+    console.log({ params });
+    window.params = params;
+    window.logs = logs;
+    return redrawTrack(window);
+}
+
+function processTraceDisplay() {
+    const preserveControls = true;
+    return redrawTrack(window, preserveControls);
+}
+
+function redrawTrack({ params, logs }, preserveControls) {
     const showTrackClassification = document.getElementById('show-track-classification');
+    const trackSelector = document.getElementById('track');
+    trackSelector.value = `${params.WORLD_NAME}.json`
+    // const trackSelector = { value: `${params.WORLD_NAME}.json` };
+    if (!preserveControls) {
+        displayEvalControls(params);
+    }
     return d3.json(`/tracks/${trackSelector.value}`)
         .then((track) => processTrack(track))
         .then((track) => trackClassification(track))
-        .then((track) => drawTrack(track, showTrackClassification.checked))
-        .catch(console.log);
+        .then((track) => drawTrack(track, showTrackClassification.checked, params, logs))
+        .catch(console.error);
+}
+
+function processEvalLog(contents) {
+
 }
 
 function processTrack(trackData) {
@@ -38,7 +69,7 @@ function processTrack(trackData) {
     };
 }
 
-function drawTrack(trackDetails, showTrackClassification) {
+function drawTrack(trackDetails, showTrackClassification, params, logs) {
     const {
         xmin,
         xmax,
@@ -84,37 +115,46 @@ function drawTrack(trackDetails, showTrackClassification) {
         .attr("class", "y axis")
         .call(yAxisCall);
 
-    // g.append("rect")
-    //     .attr("x", xScale(xmin))
-    //     .attr("y", yScale(ymin))
-    //     .attr("height", yScale(ymax - ymin))
-    //     .attr('width', xScale(xmax - xmin))
-    //     .attr("fill", "green")
-
     path = d3.line().x((d) => xScale(d.x)).y((d) => yScale(d.y));
     g.append("path")
         .attr("class", "outer-line")
         .attr("fill-opacity", "1.0")
-        .attr("stroke", "grey")
-        .attr("stroke-width", "3")
+        .attr("stroke", "#ddd")
+        .attr("stroke-width", "4")
         .attr("d", path(outer));
 
     g.append("path")
         .attr("class", "inner-line")
-        .attr("fill-opacity", "1.0")
+        .attr("fill-opacity", "0.7")
         .attr("fill", "green")
-        .attr("stroke", "grey")
+        .attr("stroke", "#999")
         .attr("stroke-width", "3")
+        .attr("stroke-opacity", "0.5")
         .attr("d", path(inner));
 
     g.append("path")
         .attr("class", "center-line")
         .attr("fill-opacity", "0")
         .attr("stroke", "orange")
+        .style("stroke-dasharray", ("6, 4"))
+        .attr("stroke-opacity", "0.5")
         .attr("d", path(center));
 
+    g.append("path")
+        .attr("class", "start-line")
+        .attr("stroke", "#999")
+        .attr("stroke-width", "5")
+        .style("stroke-dasharray", ("5, 5"))
+        .attr("d", path([inner[0], outer[0]]));
+
+    // g.append("rect")
+    //     .attr("x", xScale(xmin))
+    //     .attr("y", yScale(ymin))
+    //     .attr("height", yScale(ymax - ymin)) //yScale(ymax - ymin))
+    //     .attr('width', 30) // yScale(xmax - xmin))
+    //     .attr("fill", "red")
+
     const { classification } = trackDetails;
-    console.log({showTrackClassification})
     if (classification && showTrackClassification) {
         g.selectAll("classify")
             .data(classification)
@@ -134,10 +174,55 @@ function drawTrack(trackDetails, showTrackClassification) {
             }[d.turn]) */)
             .attr('font-size', "0.5em")
     }
+    if (params && logs) {
+        for (let i = 0; i < params.NUMBER_OF_TRIALS; i++) {
+            const evalTrace = document.getElementById(`eval-trace-${i}`);
+            if (evalTrace.checked) {
+                g.append("path")
+                    .attr("class", "center-line")
+                    .attr("fill-opacity", "0")
+                    .attr("stroke", "yellow")
+                    // .style("stroke-dasharray", ("6, 4"))
+                    .attr("stroke-opacity", "0.5")
+                    .attr("d", path(logs[i]));
+            }
+        }
+    }
     return trackDetails;
 }
 
-function displayClassification(trackData) {
+function displayEvalControls(params) {
+    controls = document.getElementById("controls");
+    if (params) {
+        const checkBoxes = [];
+        for (let i = 0; i < params.NUMBER_OF_TRIALS; i++) {
+            checkBoxes.push(`
+                <label class="md:w-2/3 block text-gray-700 font-bold">
+                    <span class="uppercase tracking-wide text-gray-700 text-xs font-bold mb-2"
+                        for="show-track-classification">
+                        Eval #${i}
+                    </span>
+                    <input id=eval-trace-${i} class="mr-2 leading-tight" type="checkbox" id="show-track-classification"
+                        onchange="processTraceDisplay()">
+                </label>`);
+        }
+
+        controls.innerHTML = `
+            <div class="w-full">
+            <h2 style="font-size:2em">
+                ${params.MODEL_NAME}
+            </h2>
+            <h3 style="font-size:1.5em">
+            ${params.WORLD_NAME}
+            </h3>
+            </div>
+            <br/>
+            <div class="flex flex-row w-full">
+            ${checkBoxes.join("\n")}
+            </div>`
+    } else {
+        controls.innerHTML = ``;
+    }
 }
 
 function angle(p1, p2) {
@@ -192,6 +277,78 @@ function trackClassification(trackDetails, debug = false) {
             console.log(`${idx}: ${turn} ${diff} ${a1} ${a3} ${x.toFixed(3)} ${y.toFixed(3)}`);
         });
     }
-
     return { ...trackDetails, classification };
+}
+
+function parseLogs(contents) {
+    const { params, logs } = contents.reduce(({ params, logs }, line) => {
+        const pline = line.match(/ \* \/(.*)/);
+        const lline = line.match(/SIM_TRACE_LOG:(.*)/);
+        if (pline) {
+            const [keystring, val_] = pline[1].split(':');
+            const keys = keystring.split("/");
+            const num = Number(val_.trim());
+            const val = isNaN(num)
+                ? val_.trim()
+                : num;
+            keys.reduce((p, k, i, all) => {
+                p[k] = (i < (all.length - 1))
+                    ? {}
+                    : val;
+                return p[k];
+            }, params);
+        } else if (lline) {
+            const [
+                episode,
+                step,
+                x,
+                y,
+                yaw,
+                steer,
+                throttle,
+                action,
+                reward,
+                done,
+                all_wheels_on_track,
+                progress,
+                closest_waypoint,
+                track_len,
+                timestamp,
+                episode_result,
+            ] = lline[1].split(",");
+            if (logs.length < (episode + 1)) {
+                logs.push([]); // add new episode
+            }
+            logs[episode].push({
+                episode: Number(episode),
+                step: Number(step),
+                x: Number(x),
+                y: Number(y),
+                yaw: Number(yaw),
+                steer: Number(steer),
+                throttle: Number(throttle),
+                action: Number(action),
+                reward: Number(reward),
+                done: done === "True",
+                all_wheels_on_track: all_wheels_on_track === "True",
+                progress: Number(progress),
+                closest_waypoint: Number(closest_waypoint),
+                track_len: Number(track_len),
+                timestamp: Number(timestamp),
+                episode_result,
+            });
+        }
+        return { params, logs };
+    }, { params: {}, logs: [] });
+    return {
+        params,
+        logs: logs.filter((l) => l.length !== 0)
+    }
+}
+
+
+async function loadDefault() {
+    const evalLog = await fetch('./evaluations/eval-log.txt');
+    const contents = await evalLog.text();
+    return processEvaluationLog(contents);
 }

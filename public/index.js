@@ -13,6 +13,8 @@ async function processEvaluationLog(content) {
     console.log({ params });
     window.params = params;
     window.logs = logs;
+    const trackSelector = document.getElementById('track');
+    trackSelector.value = `${params.WORLD_NAME}.json`
     return redrawTrack(window);
 }
 
@@ -24,20 +26,15 @@ function processTraceDisplay() {
 function redrawTrack({ params, logs }, preserveControls) {
     const showTrackClassification = document.getElementById('show-track-classification');
     const trackSelector = document.getElementById('track');
-    trackSelector.value = `${params.WORLD_NAME}.json`
     // const trackSelector = { value: `${params.WORLD_NAME}.json` };
     if (!preserveControls) {
         displayEvalControls(params);
     }
-    return d3.json(`/tracks/${trackSelector.value}`)
+    return d3.json(`/public/tracks/${trackSelector.value}`)
         .then((track) => processTrack(track))
         .then((track) => trackClassification(track))
         .then((track) => drawTrack(track, showTrackClassification.checked, params, logs))
         .catch(console.error);
-}
-
-function processEvalLog(contents) {
-
 }
 
 function processTrack(trackData) {

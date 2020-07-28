@@ -30,7 +30,7 @@ function redrawTrack({ params, logs }, preserveControls) {
     if (!preserveControls) {
         displayEvalControls(params);
     }
-    return d3.json(`/public/tracks/${trackSelector.value}`)
+    return d3.json(`./tracks/${trackSelector.value}`)
         .then((track) => processTrack(track))
         .then((track) => trackClassification(track))
         .then((track) => drawTrack(track, showTrackClassification.checked, params, logs))

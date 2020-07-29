@@ -183,11 +183,14 @@ function drawTrack(trackDetails, showTrackClassification, params, logs) {
         for (let i = 0; i < params.NUMBER_OF_TRIALS; i++) {
             const evalTrace = document.getElementById(`eval-trace-${i}`);
             if (evalTrace.checked) {
-                const [maxReward, minReward] = logs.reduce(([maxReward, minReward], el) => {
+                const { maxReward, minReward } = logs[i].reduce(({ maxReward, minReward }, el) => {
                     maxReward = Math.max(maxReward, el.reward);
                     minReward = Math.min(minReward, el.reward);
-                    return [maxReward, minReward];
-                }, [0, Infinity])
+                    return { maxReward, minReward };
+                }, { maxReward: -Infinity, minReward: Infinity })
+                const rScale = d3.scaleLinear()
+                    .domain([minReward, maxReward])
+                    .range([0, 5])
                 g.append("path")
                     .attr("class", "center-line")
                     .attr("fill-opacity", "0")
@@ -196,15 +199,25 @@ function drawTrack(trackDetails, showTrackClassification, params, logs) {
                     // .style("stroke-dasharray", ("6, 4"))
                     .attr("d", path(logs[i]))
                     .attr("stroke-opacity", "0.5")
-                    // .call((p) => p
-                    //     .transition()
-                    //     .duration(7500)
-                    //     .attrTween("stroke-dasharray", () => {
-                    //         const l = this.getTotalLength();
-                    //         const i = d3.interpolateString("0," + l, l + "," + l);
-                    //         return function(t) { return i(t); };
-                    //     })
-                    // );
+                const rr = [];
+                g.selectAll(`dot-${i}`)
+                    .data(logs[i])
+                    .enter()
+                    .append("circle")
+                    .attr("cx", (d) => xScale(d.x))
+                    .attr("cy", (d) => yScale(d.y))
+                    .attr("r", (d) => 0.3 + 0.3 * rScale(d.reward))
+                    .attr("opacity", (d) => 0.3 + 0.3 * rScale(d.reward))
+                    .attr("fill", "yellow")
+                // .call((p) => p
+                //     .transition()
+                //     .duration(7500)
+                //     .attrTween("stroke-dasharray", () => {
+                //         const l = this.getTotalLength();
+                //         const i = d3.interpolateString("0," + l, l + "," + l);
+                //         return function(t) { return i(t); };
+                //     })
+                // );
             }
         }
     }

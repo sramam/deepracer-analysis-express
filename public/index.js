@@ -5,17 +5,19 @@ function trackSwitched() {
     return redrawTrack(window);
 }
 
-async function processEvaluationLog(content) {
-    content = content || document.getElementById("eval-log").value;
-    const { params, logs } = content
-        ? await parseLogs(content.split("\n"))
+refreshHistory = true;
+
+async function processEvaluationLog(contents) {
+    contents = contents || document.getElementById("eval-log").value;
+    const { params, logs } = contents
+        ? await parseLogs(contents.split("\n"))
         : { params: null, logs: [] };
-    console.log({ params });
     window.params = params;
     window.logs = logs;
     const trackSelector = document.getElementById('track');
     trackSelector.value = `${params.WORLD_NAME}.json`
-    return redrawTrack(window);
+    redrawTrack(window);
+    document.getElementById("eval-log").value = null;
 }
 
 function processTraceDisplay() {
@@ -34,6 +36,10 @@ function redrawTrack({ params, logs }, preserveControls) {
         .then((track) => processTrack(track))
         .then((track) => trackClassification(track))
         .then((track) => drawTrack(track, showTrackClassification.checked, params, logs))
+        .then((...args) => {
+            displayHistory();
+            return args;
+        })
         .catch(console.error);
 }
 
@@ -153,6 +159,8 @@ function drawTrack(trackDetails, showTrackClassification, params, logs) {
 
     const { classification } = trackDetails;
     if (classification && showTrackClassification) {
+        const filtered = classification.map(({ turn, diff, x, y }) => ({ turn, diff: diff.toFixed(2), x: x.toFixed(2), y: y.toFixed(2) }))
+        console.log(filtered)
         g.selectAll("classify")
             .data(classification)
             .enter()
@@ -175,13 +183,28 @@ function drawTrack(trackDetails, showTrackClassification, params, logs) {
         for (let i = 0; i < params.NUMBER_OF_TRIALS; i++) {
             const evalTrace = document.getElementById(`eval-trace-${i}`);
             if (evalTrace.checked) {
+                const [maxReward, minReward] = logs.reduce(([maxReward, minReward], el) => {
+                    maxReward = Math.max(maxReward, el.reward);
+                    minReward = Math.min(minReward, el.reward);
+                    return [maxReward, minReward];
+                }, [0, Infinity])
                 g.append("path")
                     .attr("class", "center-line")
                     .attr("fill-opacity", "0")
                     .attr("stroke", "yellow")
+                    // .style("stroke-dasharray", "0,4")
                     // .style("stroke-dasharray", ("6, 4"))
+                    .attr("d", path(logs[i]))
                     .attr("stroke-opacity", "0.5")
-                    .attr("d", path(logs[i]));
+                    // .call((p) => p
+                    //     .transition()
+                    //     .duration(7500)
+                    //     .attrTween("stroke-dasharray", () => {
+                    //         const l = this.getTotalLength();
+                    //         const i = d3.interpolateString("0," + l, l + "," + l);
+                    //         return function(t) { return i(t); };
+                    //     })
+                    // );
             }
         }
     }
@@ -220,6 +243,96 @@ function displayEvalControls(params) {
     } else {
         controls.innerHTML = ``;
     }
+}
+
+function displayHistory() {
+    console.log("displayHistory");
+    const storedKeys = window.localStorage.getItem("history")
+    let history = ``;
+    if (storedKeys) {
+        console.log({ storedKeys });
+        const rows = storedKeys.split(",").map((run_id) => {
+            const val = window.localStorage.getItem(run_id);
+            if (val) {
+                const { start, model, raceType, track, numEvals } = JSON.parse(val);
+                return `
+                <tr class="hover:bg-gray-100 border-b border-gray-200 py-10">
+                    <td class="px-4 py-4">
+                      ${model}
+                      <span class="text-blue-500 hover:text-blue-800" onclick="loadFromStorage('${run_id}')">
+                        (reload)
+                      </span>
+                    </td>
+                    <td class="px-4 py-4">${track}</td>
+                    <td class="px-4 py-4">${numEvals}</td>
+                    <td class="px-4 py-4">${raceType}</td>
+                    <!--td class="px-4 py-4">${start}</td-->
+                    <td class="px-4 py-4"><span class="text-blue-500 hover:text-blue-800" onclick="removeItem('${run_id}')">delete me</span></td>
+                </tr>`
+            } else {
+                return ``
+            }
+        }).join("\n");
+        history = `
+        <div class="bg-white pb-4 px-4 rounded-md w-full border-t border-b border-gray-400">
+            <div class="flex justify-between w-full pt-6 ">
+                <h3 style="font-size:1.5em">History</h3>
+            </div>
+            <div class="overflow-x-auto mt-6">
+                <table class="table-auto border-collapse w-full">
+                    <thead>
+                        <tr class="rounded-lg text-sm font-medium text-gray-700 text-left" style="font-size: 0.9674rem">
+                            <th class="px-4 py-2" style="background-color:#f8f8f8">Model</th>
+                            <th class="px-4 py-2" style="background-color:#f8f8f8">Track</th>
+                            <th class="px-4 py-2" style="background-color:#f8f8f8">Number of Evals</th>
+                            <th class="px-4 py-2" style="background-color:#f8f8f8">Race Type</th>
+                            <!--th class="px-4 py-2" style="background-color:#f8f8f8">Start Time</th-->
+                            <th class="px-4 py-2" style="background-color:#f8f8f8">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm font-normal text-gray-700">
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+    }
+    document.getElementById('history').innerHTML = history;
+    refreshHistory = false;
+    return false;
+}
+
+function loadFromStorage(run_id) {
+    const storedKeys = window.localStorage.getItem("history");
+    if (storedKeys) {
+        const keys = storedKeys.split(",");
+        if (-1 < keys.indexOf(run_id)) {
+            const json = window.localStorage.getItem(run_id);
+            const { contents: _contents } = JSON.parse(json);
+            const contents = atob(_contents);
+            console.log(contents);
+            processEvaluationLog(contents);
+            console.log(`loaded ${run_id} from localStorage`);
+        } else {
+            console.log(`missing ${run_id} in localStorage`)
+        }
+    }
+    return false;
+}
+
+
+function removeItem(run_id) {
+    const storedKeys = window.localStorage.getItem("history");
+    if (storedKeys) {
+        const keys = storedKeys.split(",");
+        if (-1 < keys.indexOf(run_id)) {
+            window.localStorage.removeItem(run_id);
+            window.localStorage.setItem("history", keys.filter((x) => x !== run_id).join(","))
+            refreshHistory = true;
+            console.log(`removed ${run_id} from history`);
+        }
+    }
+    return false;
 }
 
 function angle(p1, p2) {
@@ -278,10 +391,16 @@ function trackClassification(trackDetails, debug = false) {
 }
 
 function parseLogs(contents) {
+    let start = null;
+    let run_id = null;
     const { params, logs } = contents.reduce(({ params, logs }, line) => {
         const pline = line.match(/ \* \/(.*)/);
         const lline = line.match(/SIM_TRACE_LOG:(.*)/);
-        if (pline) {
+        const rline = line.match(/setting \/run_id to (.*)/);
+        if (rline) {
+            run_id = rline[1];
+        }
+        else if (pline) {
             const [keystring, val_] = pline[1].split(':');
             const keys = keystring.split("/");
             const num = Number(val_.trim());
@@ -316,6 +435,10 @@ function parseLogs(contents) {
             if (logs.length < (episode + 1)) {
                 logs.push([]); // add new episode
             }
+            if (start === null) {
+                console.log(timestamp);
+                start = (new Date(parseInt(timestamp))).toISOString().replace(/T/, ' ').replace(/\..+/, '');
+            }
             logs[episode].push({
                 episode: Number(episode),
                 step: Number(step),
@@ -337,15 +460,42 @@ function parseLogs(contents) {
         }
         return { params, logs };
     }, { params: {}, logs: [] });
+    if (run_id) {
+        console.log(`setItem ${run_id}`)
+        window.localStorage.setItem(run_id, JSON.stringify({
+            start,
+            model: params.MODEL_NAME,
+            raceType: params.RACE_TYPE,
+            track: params.WORLD_NAME,
+            numEvals: params.NUMBER_OF_TRIALS,
+            contents: btoa(contents.join("\n")),
+        }));
+        const storedKeys = window.localStorage.getItem("history");
+        if (!storedKeys || -1 === storedKeys.split(",").indexOf(run_id)) {
+            window.localStorage.setItem("history", `${storedKeys},${run_id}`);
+            console.log(`stored ${run_id} in history`);
+        } else {
+            console.log(`refreshed ${run_id} in history`);
+        }
+    }
     return {
-        params,
+        params: { ...params, start, run_id },
         logs: logs.filter((l) => l.length !== 0)
     }
 }
-
 
 async function loadDefault() {
     const evalLog = await fetch('./evaluations/eval-log.txt');
     const contents = await evalLog.text();
     return processEvaluationLog(contents);
 }
+
+const refreshUI = () => {
+    if (refreshHistory) {
+        console.log(`refreshing`);
+        displayHistory()
+    }
+    setTimeout(() => window.requestAnimationFrame(refreshUI), 300);
+};
+
+window.requestAnimationFrame(refreshUI)
